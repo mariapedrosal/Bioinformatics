@@ -31,7 +31,7 @@ from sklearn.metrics import confusion_matrix
 from sklearn.metrics import accuracy_score
 import matplotlib.pyplot as plt
 import seaborn as sb
-#%matplotlib inline  #t is a magic function that renders the figure in a notebook
+#%matplotlib inline  #It is a magic function that renders the figure in a notebook
 
 
 #Se leen los archivos que están en formato csv
