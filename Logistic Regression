@@ -1,0 +1,345 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Jan 30 11:10:47 2019
+
+@author: Elsa
+"""
+
+#Modelo de Regresión Logística
+#Algoritmo de clasificación de Machine Learning que es usado para predecir
+#la probabilidad de una variable categórica dependiente. Sólo mostrará dos
+#resultados: 0 (fallo) y 1 (éxito).
+
+'''
+The Logistic Regression Model is a Machine Learning Classification Algoritm
+predicts the probability of a dependent categorical variable. The results could
+be only 0 (fail) or 1 (success)
+ 
+'''
+
+
+#Primero importamos los paquetes
+#First, the packets must be imported.
+
+
+import pandas as pd
+import numpy as np
+from sklearn import linear_model
+from sklearn import model_selection
+from sklearn.metrics import classification_report
+from sklearn.metrics import confusion_matrix
+from sklearn.metrics import accuracy_score
+import matplotlib.pyplot as plt
+import seaborn as sb
+#%matplotlib inline  #t is a magic function that renders the figure in a notebook
+
+
+#Se leen los archivos que están en formato csv
+#Second, the files (in a csv format) will be reading
+
+#cargar datos 
+ruta_train='C:\\Users\\Elsa\\Documents\\Master\\BIOINFORMATICA\\Bioinformatics-master\\Bioinformatics-master\\data_set_ALL_AML_train.csv'
+
+ruta_y='C:\\Users\\Elsa\\Documents\\Master\\BIOINFORMATICA\\Bioinformatics-master\\Bioinformatics-master\\actual.csv'
+
+ruta_test='C:\\Users\\Elsa\\Documents\\Master\\BIOINFORMATICA\\Bioinformatics-master\\Bioinformatics-master\\data_set_ALL_AML_independent.csv'
+
+train=pd.read_csv(ruta_train)
+
+test=pd.read_csv(ruta_test)
+
+y=pd.read_csv(ruta_y)
+
+#The response is coded as a categorical variable, with 1 coding ALL and 0 
+#coding AML. This response variable is split into the diagnosis of test 
+#patients and train patients
+
+
+y.index=y['patient']
+y['cancer']=np.where(y.cancer=='ALL', 1, 0) 
+y.groupby('cancer').size() 
+ytrain=y[:len(train)]
+ytest=y[len(train):]
+
+
+
+
+
+#Features are initially placed in the rows of the dataframe, while patients 
+#are in the columns. Thus, it is necessary to transpose the data. Besides, 
+#there are some columns name 'call', between the patients information, whose 
+#data is not relevant for our model. These columns were also removed. Lastly, 
+#the name of the features was changed and the actual expression measure was 
+#converted into a numeric data.
+
+#Transponer
+
+train=train.T
+
+test=test.T
+
+#Quitar los call
+
+for fila in train.index:
+
+    if 'call' in fila:
+
+        train=train.drop(fila)
+
+
+
+for fila in test.index:
+
+    if 'call' in fila:
+
+        test=test.drop(fila)
+
+
+
+#Poner como nombre de columnas el gene accession
+
+
+
+columnastrain=train.loc['Gene Accession Number']
+
+train=train[2:]
+
+train.columns=columnastrain
+
+
+
+columnastest=test.loc['Gene Accession Number']
+
+test=test[2:]
+
+test.columns=columnastest
+
+
+
+#Pasar a numerico
+
+train=train.astype('float') # es X
+
+test=test.astype('float')
+
+train.index=train.index.astype(int)
+
+test.index=test.index.astype(int)
+
+train=train.sort_index()
+
+test=test.sort_index()
+
+#Once the data has the accurate structure, it is time to perform the 
+#aforementioned feature selection. Two algorithms for this aim were used in a 
+#combined way. In the first one, an univariant selection was perform, and thus 
+#each feature was individually selected or removed for the final analysis. In 
+#order to do that, the Fischer score was computed and the 100 best atributes 
+#were selected. On the other hand, a packing selection tool was used. This 
+#type of tools consider the selection as a searching problem (typical of the 
+#artificial intelligence tools), and different combinations of features are
+# evaluated and compared. To each of these combinations, a score is computed 
+#and assigned and some algorithms are run to select the best combinations. In 
+#this case, the algorithm for the selection was the recursive feature removal.
+
+#feature = característica
+
+#COdificar la variable respuesta (categorica) como 0 y 1
+
+y.index=y['patient']
+
+y['cancer']=np.where(y.cancer=='ALL', 1, 0) #ALL es la categoria 1, AML es la 0
+
+y.groupby('cancer').size() #Hay 47 AML y 25 ALL, por lo que esta desbalancedada
+
+ytrain=y[:len(train)]
+
+ytest=y[len(train):]
+
+#Hay demasiados features, hay que quitar los que sobran
+
+
+
+# Aplicando el algoritmo univariante de prueba F.
+
+k = 100  # número de atributos a seleccionar
+
+columnas = list(train.columns.values)
+
+seleccionadas = SelectKBest(f_classif, k=k).fit(train, ytrain['cancer'])
+
+atrib = seleccionadas.get_support()
+
+atributos1 = [columnas[i] for i in list(atrib.nonzero()[0])]
+
+atributos1
+
+
+
+#Eliminacion recursiva de atributos
+
+modelo = ExtraTreesClassifier()
+
+era = RFE(modelo, 100)  # número de atributos a seleccionar
+
+era = era.fit(train, ytrain['cancer'])
+
+atrib2 = era.support_
+
+atributos2 = [columnas[i] for i in list(atrib2.nonzero()[0])]
+
+atributos2
+
+
+
+#Se combinan los atributos elegidos en una lista
+print('The selected features are: ')
+atribselec=list(set(atributos1)|set(atributos2))
+print(atribselec)
+
+
+trainred=pd.DataFrame()
+
+for i in atribselec:
+
+    trainred[i]=train[i]
+
+
+
+testred=pd.DataFrame()
+
+for i in atribselec:
+
+    testred[i]=test[i]
+
+#Aun asi pueden ser demasiados atributos, por lo que se realiza un analisis de 
+
+#componentes principales
+    
+#Since 100 features have been selected with each type of tool, a maximum number
+# of 200 were considered to be significant for our classification models. They 
+#may also be too many, and so a principal component analysis (PCA) was 
+#performed. This is an statistical tool used for describing complex data in 
+#terms of new uncorrelationated variables. In this case, the algorithm is 
+#computed in a way that the new variables mantain the 95% of the variance in 
+#the original variables. Since PCA is affected by the data scale, it is 
+#necessary to standarize it previously to the computing.
+
+from sklearn.preprocessing import StandardScaler
+scaler=StandardScaler()
+scaler.fit(trainred)
+train=scaler.transform(trainred)
+test=scaler.transform(testred)
+from sklearn.decomposition import PCA
+pca=PCA(.95) #El algoritmo elige el numero minimo de componentes de manera que  
+#aun se retiene el 95% de la varianza
+pca.fit(trainred)
+
+train=pca.transform(trainred)
+test=pca.transform(testred)
+
+print("TRAIN")
+print(pd.DataFrame(train))
+print("\n"+"-"*50+"\n")
+print("TEST")
+print(pd.DataFrame(test))
+
+
+'''
+Machine learning algorithms to compute classifiers
+Up to this point, we are now able to perform the machine learnings algorithms 
+in order to establish a classification model for the leukemia diagnosis.
+
+'''
+##ÏCreamo un arbol de decision
+
+#cv = KFold(n_splits=10)
+
+#accuracies = list()
+
+#max_attributes = len(list(ytrain))
+
+#depth_range = range(1, max_attributes + 1)
+
+
+
+
+'''
+clf_gini = DecisionTreeClassifier(criterion = 'gini', random_state=100)
+
+clf_gini.fit(train, ytrain)
+
+
+
+ypred=clf_gini.predict(test)
+'''
+
+import pandas as pd
+import numpy as np
+from sklearn import linear_model.LogisticRegression
+from sklearn import model_selection
+from sklearn.metrics import classification_report
+from sklearn.metrics import confusion_matrix
+from sklearn.metrics import accuracy_score
+import matplotlib.pyplot as plt
+import seaborn as sb
+#Regresión logística
+train=pd.read_csv(ruta_train)
+
+test=pd.read_csv(ruta_test)
+
+y=pd.read_csv(ruta_y)
+
+train.describe()
+test.describe()
+y.describe()
+
+#analisis de resultados
+print(train.groupby('cancer').size())
+
+#visualizacion datos
+train.drop(['cancer'],1).hist()
+plt.show()
+
+#para interrelacionar las entradas en pares
+#sb.pairplot(train.dropna(), hue='clase', size=4, vars=["duracion", "paginas", "acciones", "valor"], kind='reg')
+
+#importamos el modelo con sklearn
+from sklearn.linear_model import LogisticRegression
+
+#creación del modelo
+X = np.array(train.drop(['cancer'],1))
+y = np.array(train['cancer'])
+X.shape
+
+model = LogisticRegression()
+model.fit(X, y)
+
+
+#tras la compilacion
+predictions = model.pred(X)
+print(predictions)[0:5]
+#comprobación cuan bueno es el modelo
+model.score(X, y)
+
+#subdivision datos de entrada de forma aleatoria
+
+validation_size = 0.20
+seed = 7
+X_train, X_validation, Y_train, Y_validation = model_selection.train_test_split(X, y, test_size=validation_size, random_state=seed)
+
+#nueva compilacion
+name='Logistic Regression'
+kfold = model_selection.KFold(n_splits=10, random_state=seed)
+cv_results = model_selection.cross_val_score(model, X_train, Y_train, cv=kfold, scoring='accuracy')
+msg = "%s: %f (%f)" % (name, cv_results.mean(), cv_results.std())
+print(msg)
+
+#predicciones
+predictions = model.predict(X_validation)
+print(accuracy_score(Y_validation, predictions))
+
+#reporte del modelo
+print(confusion_matrix(Y_validation, predictions))
+print(classification_report(Y_validation, predictions))
+
